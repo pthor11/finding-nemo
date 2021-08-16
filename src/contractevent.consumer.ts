@@ -1,4 +1,5 @@
 import { KafkaMessage } from "kafkajs";
+import { cachedUsers } from "./cache";
 import { TRON_BLOCK_INIT, USDT_ADRESS } from "./config";
 import { mongoClient, mongoCollections } from "./mongo";
 import { User } from "./user.model";
@@ -22,7 +23,7 @@ const contracteventConsumer = async (message: KafkaMessage) => {
                 return
             }
 
-            const foundUserFrom = await mongoCollections.users.findOne({ address: event.topicMap.from }, { session }) as User | undefined
+            const foundUserFrom = cachedUsers.find(user => user.address === event.topicMap.from)
 
             console.log({ foundUserFrom });
 
@@ -32,7 +33,7 @@ const contracteventConsumer = async (message: KafkaMessage) => {
                 return
             }
 
-            const foundUserTo = await mongoCollections.users.findOne({ address: event.topicMap.to }, { session }) as User | undefined
+            const foundUserTo = cachedUsers.find(user => user.address === event.topicMap.to)
 
             console.log({ foundUserTo });
 
@@ -42,10 +43,12 @@ const contracteventConsumer = async (message: KafkaMessage) => {
                 return
             }
 
-            await mongoCollections.users.insertOne({
+            const userTo: User = {
                 address: event.topicMap.to,
                 createdAt: new Date()
-            }, { session })
+            }
+
+            await mongoCollections.users.insertOne(userTo, { session })
 
             await mongoCollections.txs.insertOne({
                 txid: event.transactionId,
@@ -55,6 +58,8 @@ const contracteventConsumer = async (message: KafkaMessage) => {
                 timeStamp: event.timeStamp,
                 createdAt: new Date()
             }, { session })
+
+            if (!cachedUsers.find(user => user.address === event.topicMap.to)) cachedUsers.push(userTo)
         })
     } catch (e) {
         if (session.inTransaction()) await session.abortTransaction()
