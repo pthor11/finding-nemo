@@ -1,0 +1,10 @@
+version: "3.7"
+
+services:
+  lumi-finding-nemo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lumi-finding-nemo
+    env_file: .env
+    restart: always
